@@ -18,6 +18,14 @@ npm install @kunstmusik/codemirror-lang-csound
 
 ## Changelog
 
+### Unreleased
+
+- Add the Csound Web IDE compatibility entry, rate CSS classes, and cursor synopsis panel.
+- Parse Csound 7 declarations, multiline UDO signatures, Unicode names, boolean rates, and array expression indexing.
+- Keep Unicode and multiline UDOs available to completion, hover, and semantic highlighting.
+- Let browser bundlers load the rich help catalog as a separate chunk.
+- Add DOM tests for the IDE integration and a command to scan a Csound test checkout.
+
 ### 1.0.2
 
 - Fix reading pfields to tokens with lower-case p. 
@@ -106,4 +114,42 @@ Hover support lazy-loads that richer catalog automatically when it needs manual 
 
 ## V1 Scope
 
-The 1.0.x baseline is aimed at editor support first. Some ambiguous opcode/assignment lines still fall back to generic-line parsing, and some alternate score-bin dialects are intentionally left as post-v1 follow-up work.
+Some ambiguous opcode/assignment lines still fall back to generic-line parsing.
+Some alternate score-bin dialects remain follow-up work.
+
+## Migrating from @hlolli/codemirror-lang-csound
+
+Use the compatibility entry to keep the Web IDE's rate colors and bottom synopsis panel:
+
+```ts
+import { csoundMode } from "@kunstmusik/codemirror-lang-csound"
+
+csoundMode({
+  fileType: "csd",             // "csd" (default), "orc", or "sco"
+  enableCompletion: true,
+  enableSynopsis: true,
+  enableDefaultTheme: true,
+})
+```
+
+All three flags default to true. Turning off the default theme keeps the CSS
+classes, so the host can supply its own colors. Completion includes built-ins
+and UDOs from the document. The synopsis panel uses the same opcode data as hover.
+
+The short names `csdLanguage`, `orcLanguage`, and `scoLanguage` alias the existing
+bare languages. `csound()` keeps its semantic colors and hover defaults.
+
+For custom setups, the package also exports `csoundLegacyHighlighting()`,
+`csoundLegacyTheme`, and `csoundSynopsis()`.
+See [MIGRATION.md](./MIGRATION.md) for the Web IDE's API and CSS requirements.
+
+## Csound corpus tests
+
+```sh
+npm run test:csound -- /path/to/csound/tests
+```
+
+The scanner also reads `CSOUND_TESTS_DIR`. It checks `.csd`, `.orc`, `.sco`,
+and `.udo` files and exits with an error on unexpected parser recovery.
+It allows named or explicitly marked error fixtures. This checks editor parsing,
+not whether Csound can compile or run a file.

@@ -16,6 +16,7 @@ import {
   type OpcodeSignature,
 } from "./opcodes.js"
 import { parser } from "./parser.js"
+import { identifierSource, typedIdentifierSource } from "./identifiers.js"
 
 interface TokenSpan {
   from: number
@@ -143,8 +144,15 @@ const ignoredSemanticVariableNames = new Set([
   "continue",
   "true",
   "false",
+  "truek",
+  "falsek",
+  "declare",
 ])
-const identifierPattern = /[A-Za-z_][A-Za-z0-9_]*(?:@global)?(?::[A-Za-z_][A-Za-z0-9_]*(?:\[\])?)?/g
+const identifierPattern = new RegExp(typedIdentifierSource, "gu")
+const standaloneIdentifierPattern = new RegExp("^" + identifierSource + "(?:@global)?(?:\\[\\])*(?::" + identifierSource + "(?:\\[\\])*)?$", "u")
+const indexedIdentifierPattern = new RegExp("^" + typedIdentifierSource + "(?:\\[[^\\]]+\\])+$", "u")
+const udoDefinitionPattern = new RegExp("^(?:opcode|declare)\\b\\s*(" + identifierSource + ")", "u")
+const typeAnnotationPattern = new RegExp(":(" + identifierSource + ")(?:\\[\\])*$", "u")
 
 const builtInOpcodeMark = Decoration.mark({
   class: "cm-csoundOpcode cm-csoundBuiltinOpcode",
@@ -691,9 +699,10 @@ function findTypeAnnotationSpans(text: string, offset: number): SemanticSpan[] {
   const code = maskNonCodeText(text)
   const spans: SemanticSpan[] = []
 
-  for (const match of code.matchAll(/[A-Za-z_][A-Za-z0-9_]*(?:@global)?(:[A-Za-z_][A-Za-z0-9_]*(?:\[\])?)/g)) {
+  for (const match of code.matchAll(identifierPattern)) {
     const matchIndex = match.index ?? 0
     const colonIndex = match[0].indexOf(":")
+    if (colonIndex < 0) continue
     spans.push({
       from: offset + matchIndex + colonIndex,
       to: offset + matchIndex + match[0].length,
@@ -713,7 +722,7 @@ function findDefinitionSemanticSpans(code: string, offset: number): SemanticSpan
 
   const spans: SemanticSpan[] = []
   const instrIdText = code.slice(instrPrefix[0].length)
-  const namePattern = /[A-Za-z_][A-Za-z0-9_]*/g
+  const namePattern = new RegExp(identifierSource, "gu")
   for (const match of instrIdText.matchAll(namePattern)) {
     const value = match[0]
     if (!isNamedInstrumentName(value)) continue
@@ -776,7 +785,7 @@ function findXinSemanticSpans(code: string, offset: number): SemanticSpan[] {
 }
 
 function udoDefinitionNameRange(text: string, offset = 0): { from: number; to: number } | null {
-  const match = text.match(/^opcode\b\s*([A-Za-z_][A-Za-z0-9_]*)/)
+  const match = text.match(udoDefinitionPattern)
   if (!match || match.index === undefined) return null
   const nameStart = match[0].lastIndexOf(match[1])
   const from = offset + nameStart
@@ -1413,15 +1422,11 @@ function splitTopLevelCommaSegments(code: string): Array<{ from: number; to: num
 }
 
 function isStandaloneIdentifierSegment(value: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*(?:@global)?(?:\[\])?(?::[A-Za-z_][A-Za-z0-9_]*(?:\[\])?)?$/.test(
-    value.trim(),
-  )
+  return standaloneIdentifierPattern.test(value.trim())
 }
 
 function isIndexedOutputSegment(value: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*(?:@global)?(?::[A-Za-z_][A-Za-z0-9_]*(?:\[\])?)?(?:\[[^\]]+\])+$/u.test(
-    value.trim(),
-  )
+  return indexedIdentifierPattern.test(value.trim())
 }
 
 function isOldStyleOutputSegment(value: string): boolean {
@@ -1626,6 +1631,7 @@ function collectPlainAssignmentValueSpans(
   const rightOffset = offset + valueStart
 
   return collectIdentifierTokens(right, rightOffset)
+    .filter(token => !ignoredSemanticVariableNames.has(token.baseName))
     .filter(token => !tokenStartsFunctionCall(right, rightOffset, token))
     .map(token => ({
       from: token.from,
@@ -1651,7 +1657,7 @@ function isPFieldName(name: string): boolean {
 }
 
 function isNamedInstrumentName(name: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)
+  return new RegExp("^" + identifierSource + "$", "u").test(name)
 }
 
 function trimSpan(text: string, from: number, to: number): { from: number; to: number } | null {
@@ -1726,7 +1732,7 @@ function outputRate(outputText: string): string | null {
   const explicitTypeRate = typedIdentifierRate(outputText)
   if (explicitTypeRate) return explicitTypeRate
 
-  const firstIdentifier = outputText.match(/[A-Za-z_][A-Za-z0-9_]*/) ?? []
+  const firstIdentifier = outputText.match(new RegExp(identifierSource, "u")) ?? []
   const name = firstIdentifier[0]
   if (!name) return null
   if (name[0] === "g" && /^[akifSpBba]/.test(name[1] ?? "")) return name[1]
@@ -1734,7 +1740,7 @@ function outputRate(outputText: string): string | null {
 }
 
 function typedIdentifierRate(value: string): string | null {
-  const match = value.trim().match(/:([A-Za-z_][A-Za-z0-9_]*)(?:\[\])?$/)
+  const match = value.trim().match(typeAnnotationPattern)
   return match?.[1]?.[0] ?? null
 }
 

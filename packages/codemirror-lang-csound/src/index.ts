@@ -4,12 +4,16 @@ import {
   foldInside,
   foldNodeProp,
   indentNodeProp,
+  indentUnit,
   LanguageSupport,
   LRLanguage,
 } from "@codemirror/language"
+import type { Extension } from "@codemirror/state"
 import { styleTags, tags as t } from "@lezer/highlight"
 
 import { csoundCompletionSource } from "./completion.js"
+import { csoundLegacyHighlighting, csoundLegacyTheme } from "./compatibility.js"
+import { csoundSynopsis } from "./synopsis.js"
 import { csoundHover, getCsoundHoverInfo, loadCsoundRichOpcodeCatalog } from "./hover.js"
 import {
   analyzeCsoundSemanticLine,
@@ -27,6 +31,8 @@ export interface CsoundLanguageConfig {
 }
 
 export { csoundCompletionSource } from "./completion.js"
+export { csoundLegacyHighlighting, csoundLegacyTheme } from "./compatibility.js"
+export { csoundSynopsis } from "./synopsis.js"
 export { csoundHover, getCsoundHoverInfo, loadCsoundRichOpcodeCatalog } from "./hover.js"
 export { csoundOpcodeCatalog } from "./opcodes.js"
 export {
@@ -49,7 +55,8 @@ const csoundHighlighting = styleTags({
   PField: t.standard(t.variableName),
   ScoreRelativePFieldName: t.standard(t.variableName),
   ScoreCarry: t.constant(t.variableName),
-  HeaderIdentifier: t.definition(t.variableName),
+  HeaderIdentifier: t.constant(t.variableName),
+  BooleanLiteral: t.bool,
   HeaderPrefixedIdentifier: t.variableName,
   ArrayIdentifier: t.variableName,
   GlobalTypedArrayIdentifier: t.variableName,
@@ -76,6 +83,7 @@ const csoundHighlighting = styleTags({
   opcode: t.definitionKeyword,
   endop: t.definitionKeyword,
   struct: t.definitionKeyword,
+  declare: t.definitionKeyword,
 
   "if _if": t.controlKeyword,
   then: t.controlKeyword,
@@ -146,9 +154,9 @@ const parserWithProps = parser.configure({
       ModernUdo: continuedIndent({ except: /^\s*endop/ }),
       IfStatement: continuedIndent({ except: /^\s*(endif|fi|else|elseif)/ }),
       WhileLoop: continuedIndent({ except: /^\s*od/ }),
-      UntilLoop: continuedIndent({ except: /^\s*od/ }),
+      UntilLoop: continuedIndent({ except: /^\s*(od|enduntil)/ }),
       ForLoop: continuedIndent({ except: /^\s*od/ }),
-      SwitchStatement: continuedIndent({ except: /^\s*endsw/ }),
+      SwitchStatement: continuedIndent({ except: /^\s*(case|default|endsw)/ }),
     }),
     foldNodeProp.add({
       InstrumentDefinition: foldInside,
@@ -162,18 +170,20 @@ const parserWithProps = parser.configure({
       OptionsBlock: foldInside,
       InstrumentsBlock: foldInside,
       ScoreBlock: foldInside,
+      ScoreNestableLoop: foldInside,
+      CabbageBlock: foldInside,
     }),
   ],
 })
 
-function makeLanguage(name: string, top: string): LRLanguage {
+function makeLanguage(name: string, top: string, completion = true): LRLanguage {
   return LRLanguage.define({
     name,
     parser: parserWithProps.configure({ top }),
     languageData: {
-      commentTokens: { line: ";" },
-      closeBrackets: { stringPrefixes: ['"'] },
-      autocomplete: csoundCompletionSource,
+      commentTokens: { line: ";", block: { open: "/*", close: "*/" } },
+      closeBrackets: { brackets: ["(", "[", "{", '"'] },
+      ...(completion ? { autocomplete: csoundCompletionSource } : {}),
     },
   })
 }
@@ -181,6 +191,33 @@ function makeLanguage(name: string, top: string): LRLanguage {
 export const csoundCsdLanguage = makeLanguage("csound-csd", "CsdFile")
 export const csoundOrcLanguage = makeLanguage("csound-orc", "OrchestraFile")
 export const csoundScoLanguage = makeLanguage("csound-sco", "ScoreFile")
+
+// Names used by @hlolli/codemirror-lang-csound consumers.
+export const csdLanguage = csoundCsdLanguage
+export const orcLanguage = csoundOrcLanguage
+export const scoLanguage = csoundScoLanguage
+
+export interface CsoundModeOptions {
+  fileType?: "csd" | "orc" | "sco"
+  enableCompletion?: boolean
+  enableSynopsis?: boolean
+  enableDefaultTheme?: boolean
+}
+
+/**
+ * Compatibility entry for the Csound Web IDE and @hlolli consumers.
+ * Uses legacy CSS classes and a synopsis panel with upstream's opcode catalog.
+ */
+export function csoundMode(options: CsoundModeOptions = {}): LanguageSupport {
+  const mode = options.fileType ?? "csd"
+  const language = options.enableCompletion === false
+    ? makeLanguage(`csound-${mode}`, mode === "orc" ? "OrchestraFile" : mode === "sco" ? "ScoreFile" : "CsdFile", false)
+    : mode === "orc" ? csoundOrcLanguage : mode === "sco" ? csoundScoLanguage : csoundCsdLanguage
+  const support: Extension[] = [csoundLegacyHighlighting(), indentUnit.of("  ")]
+  if (options.enableSynopsis !== false) support.push(csoundSynopsis())
+  if (options.enableDefaultTheme !== false) support.push(csoundLegacyTheme)
+  return new LanguageSupport(language, support)
+}
 
 export function csound(config?: CsoundLanguageConfig): LanguageSupport {
   const mode = config?.mode ?? "csd"

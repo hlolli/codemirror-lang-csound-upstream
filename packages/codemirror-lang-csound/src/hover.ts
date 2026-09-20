@@ -12,6 +12,7 @@ import {
   type RichOpcodeCatalogEntry,
 } from "./opcodes.js"
 import { findSemanticSpans } from "./semantic.js"
+import { typedIdentifierSource } from "./identifiers.js"
 
 export interface CsoundHoverInfo {
   name: string
@@ -37,7 +38,7 @@ type RichOpcodeCatalogModule = {
   csoundRichOpcodeCatalog: OpcodeCatalog<RichOpcodeCatalogEntry>
 }
 
-const identifierPattern = /[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)?/g
+const identifierPattern = new RegExp(typedIdentifierSource, "gu")
 const coreOpcodeEntriesByName = new Map(
   csoundOpcodeCatalog.opcodes.map(opcode => [opcode.name, opcode] as const),
 )
@@ -352,8 +353,5 @@ function unique(values: string[]): string[] {
 }
 
 async function loadRichOpcodeCatalogModule(): Promise<RichOpcodeCatalogModule> {
-  const importRichOpcodeCatalog = new Function(
-    "return import('@kunstmusik/codemirror-lang-csound/rich')",
-  ) as () => Promise<RichOpcodeCatalogModule>
-  return importRichOpcodeCatalog()
+  return import("./opcodes-rich.js")
 }

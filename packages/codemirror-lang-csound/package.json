@@ -27,7 +27,8 @@
     }
   },
   "files": [
-    "dist/**"
+    "dist/**",
+    "MIGRATION.md"
   ],
   "license": "MIT",
   "repository": {
@@ -53,6 +54,7 @@
   "devDependencies": {
     "@lezer/generator": "^1.7.0",
     "esbuild": "^0.28.0",
+    "jsdom": "^26.1.0",
     "tslib": "^2.6.0",
     "typescript": "^5.0.0"
   },
@@ -64,6 +66,7 @@
     "generate:opcodes": "node scripts/generate-opcode-catalog-from-manual.mjs --manual-dir ../../../manual",
     "generate:opcodes:manual": "node scripts/generate-opcode-catalog-from-manual.mjs --manual-dir ../../../manual",
     "generate:opcodes:z1": "node scripts/generate-opcode-catalog-from-z1.mjs",
-    "test": "node scripts/build.mjs && node --test"
+    "test": "npm run build:grammar && node scripts/build.mjs && node --test",
+    "test:csound": "npm run build:grammar && node scripts/scan-csound-tests.mjs"
   }
 }

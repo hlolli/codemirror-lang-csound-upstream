@@ -1,72 +1,70 @@
-# Csound Web IDE migration
+# Host migration
 
-This compatibility entry lets the Web IDE replace
-`@hlolli/codemirror-lang-csound` with `@kunstmusik/codemirror-lang-csound`
-after an upstream release includes these changes.
+Version 1.0.3 prepares hosts to replace `@hlolli/codemirror-lang-csound`.
+It must ship as a new version, not as changed contents under 1.0.2.
 
-## Imports and options
+## Core interface
 
-Change the import in `src/components/editor/editor.tsx` and
-`src/components/editor/utils.test.ts`:
+Use the main entry for language support:
 
 ```ts
-import { csoundMode } from "@kunstmusik/codemirror-lang-csound"
+import { csound, getCsoundHoverInfo } from "@kunstmusik/codemirror-lang-csound"
+
+csound({ mode: "orc", semanticHighlighting: false, hover: false })
+const info = await getCsoundHoverInfo("oscili", { documentText })
 ```
 
-Replace the package dependency at the same time. Keep `csoundMode({ fileType })`.
-The mode defaults to `csd` and also accepts `orc` and `sco`. The IDE already maps
-other file types, including UDO files, to `orc`.
+The package owns parsing, Csound 7 syntax, semantic classification, completion,
+hover data, and generic folding, indentation, comment, and bracket metadata.
+Set `completion: false` when a host supplies its own completion source.
+The existing semantic-highlighting and hover extensions remain available.
+The rich help catalog loads on demand through a bundler-visible import.
 
-`enableCompletion`, `enableSynopsis`, and `enableDefaultTheme` default to true.
-Setting `enableDefaultTheme: false` retains the CSS hooks below. Setting
-`enableSynopsis: false` removes the panel. Setting `enableCompletion: false`
-removes this language's completion source.
+## Temporary compatibility entry
 
-Use `csound({ mode })` when switching to upstream's semantic colors and hover UI.
-For that API, the options remain `semanticHighlighting` and `hover`.
+```ts
+import { csoundMode } from "@kunstmusik/codemirror-lang-csound/compat"
 
-## Theme contract
+csoundMode({ fileType: "orc", enableCompletion: true })
+```
 
-`src/styles/code-mirror-painter.tsx` styles these classes:
+This language-only adapter maps `fileType` to `mode` and `enableCompletion`
+to `completion`. It defaults to CSD with completion enabled. It adds no colors,
+legacy CSS classes, synopsis panel, hover UI, evaluation policy, or preferred
+indent unit. Hosts supply those choices. It is not a drop-in replacement for
+the old package's presentation behavior.
 
-| Classes | Meaning |
-| --- | --- |
-| `cm-csound-define` | Instruments, UDOs, declarations, and definitions |
-| `cm-csound-control-flow` | Branches, loops, and control statements |
-| `cm-csound-opcode` | Built-in and document-local opcode calls |
-| `cm-csound-global-var` | An extra class on global variables |
-| `cm-csound-a-rate-var`, `cm-csound-k-rate-var` | Audio and control variables |
-| `cm-csound-s-rate-var`, `cm-csound-f-rate-var` | Strings and spectral variables |
-| `cm-csound-p-field-var` | P-fields |
-| `cm-csound-global-constant` | Header names, including all of `0dbfs` |
-| `cm-csound-macro-token` | Macro uses |
-| `cm-panels-bottom` | CodeMirror's panel container |
+The adapter also exports `csdLanguage`, `orcLanguage`, and `scoLanguage`.
+The main entry does not export these aliases or `csoundMode`. New integrations
+should use the core interface directly. Existing core consumers such as Blue
+do not need the compatibility entry.
 
-The compatibility highlighter also supplies classes for init variables, numbers,
-booleans, comments, XML tags, labels, and brackets. It uses explicit types such as
-`signal@global:a` before legacy rate prefixes. The panel uses DOM text nodes for
-opcode help and clears stale results when the cursor moves.
-The rich help catalog loads on demand through a bundler-visible import, so
-browser builds can keep named arguments in a separate chunk.
+## Web IDE responsibilities
 
-## Block evaluation
+The companion Web IDE migration uses `csound({ mode })` directly and owns:
 
-The IDE's `findSurroundingContext` in `src/components/editor/utils.ts` relies on:
+- Its synopsis DOM, panel layout, and stale-result handling, using
+  `getCsoundHoverInfo` for data.
+- Rate colors and the `cm-csound-*` theme classes.
+- File-type mapping, indentation preferences, keys, and editor state.
+- Context selection and Csound execution.
 
-- `InstrumentDefinition` and `UdoDefinition` for whole-block evaluation.
-- `OrcStatement` inside `OrcStatements` for a top-level orchestra statement.
-- `ScoStatement` inside `ScoStatements` for a score statement.
+The IDE adapts the current syntax tree inside its own `findSurroundingContext`
+helper and returns plain `{ from, to, kind }` values to evaluation code.
+Its tests cover whole instruments, legacy and modern UDOs, top-level orchestra
+and score statements, and their actual execution routes.
 
-These nodes remain available in bare files and CSD blocks. The integration tests
-exercise the same walk for classic UDOs, multiline modern UDOs, instruments, and
-individual orchestra and score statements.
+Parser node names remain implementation details, not an evaluation interface
+promised by this package. A reusable range helper can follow if another host
+needs the same policy.
 
-## Csound 7
+## Test and release split
 
-The parser adds `declare`, multiline modern UDO signatures, `truek` and `falsek`,
-Unicode names, legacy boolean-rate names, typed multidimensional arrays, and
-indexing or slicing an array literal or parenthesized expression. Completion,
-hover, and semantic analysis also recognize Unicode UDO names.
+Package tests prove language behavior, entry-point isolation, ESM/CommonJS
+support, and browser catalog loading. Web IDE tests prove presentation and
+evaluation behavior. The language package needs no DOM test dependency for
+the IDE's UI.
 
-The source checkout keeps its npm/Node build and ESM/CommonJS outputs.
-The migration does not require Bun in the IDE or in package consumers.
+Publish 1.0.3 or a later version after merging the language changes. Then update
+host dependencies and lockfiles. Hosts pinned to 1.0.2, including Blue, must
+explicitly choose the new version to receive these changes.

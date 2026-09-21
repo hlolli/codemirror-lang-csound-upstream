@@ -4,16 +4,12 @@ import {
   foldInside,
   foldNodeProp,
   indentNodeProp,
-  indentUnit,
   LanguageSupport,
   LRLanguage,
 } from "@codemirror/language"
-import type { Extension } from "@codemirror/state"
 import { styleTags, tags as t } from "@lezer/highlight"
 
 import { csoundCompletionSource } from "./completion.js"
-import { csoundLegacyHighlighting, csoundLegacyTheme } from "./compatibility.js"
-import { csoundSynopsis } from "./synopsis.js"
 import { csoundHover, getCsoundHoverInfo, loadCsoundRichOpcodeCatalog } from "./hover.js"
 import {
   analyzeCsoundSemanticLine,
@@ -26,13 +22,12 @@ import {
 
 export interface CsoundLanguageConfig {
   mode?: "csd" | "orc" | "sco"
+  completion?: boolean
   semanticHighlighting?: boolean
   hover?: boolean
 }
 
 export { csoundCompletionSource } from "./completion.js"
-export { csoundLegacyHighlighting, csoundLegacyTheme } from "./compatibility.js"
-export { csoundSynopsis } from "./synopsis.js"
 export { csoundHover, getCsoundHoverInfo, loadCsoundRichOpcodeCatalog } from "./hover.js"
 export { csoundOpcodeCatalog } from "./opcodes.js"
 export {
@@ -192,41 +187,20 @@ export const csoundCsdLanguage = makeLanguage("csound-csd", "CsdFile")
 export const csoundOrcLanguage = makeLanguage("csound-orc", "OrchestraFile")
 export const csoundScoLanguage = makeLanguage("csound-sco", "ScoreFile")
 
-// Names used by @hlolli/codemirror-lang-csound consumers.
-export const csdLanguage = csoundCsdLanguage
-export const orcLanguage = csoundOrcLanguage
-export const scoLanguage = csoundScoLanguage
-
-export interface CsoundModeOptions {
-  fileType?: "csd" | "orc" | "sco"
-  enableCompletion?: boolean
-  enableSynopsis?: boolean
-  enableDefaultTheme?: boolean
-}
-
-/**
- * Compatibility entry for the Csound Web IDE and @hlolli consumers.
- * Uses legacy CSS classes and a synopsis panel with upstream's opcode catalog.
- */
-export function csoundMode(options: CsoundModeOptions = {}): LanguageSupport {
-  const mode = options.fileType ?? "csd"
-  const language = options.enableCompletion === false
-    ? makeLanguage(`csound-${mode}`, mode === "orc" ? "OrchestraFile" : mode === "sco" ? "ScoreFile" : "CsdFile", false)
-    : mode === "orc" ? csoundOrcLanguage : mode === "sco" ? csoundScoLanguage : csoundCsdLanguage
-  const support: Extension[] = [csoundLegacyHighlighting(), indentUnit.of("  ")]
-  if (options.enableSynopsis !== false) support.push(csoundSynopsis())
-  if (options.enableDefaultTheme !== false) support.push(csoundLegacyTheme)
-  return new LanguageSupport(language, support)
-}
-
 export function csound(config?: CsoundLanguageConfig): LanguageSupport {
   const mode = config?.mode ?? "csd"
   const language =
-    mode === "orc"
-      ? csoundOrcLanguage
-      : mode === "sco"
-        ? csoundScoLanguage
-        : csoundCsdLanguage
+    config?.completion === false
+      ? makeLanguage(
+          `csound-${mode}`,
+          mode === "orc" ? "OrchestraFile" : mode === "sco" ? "ScoreFile" : "CsdFile",
+          false,
+        )
+      : mode === "orc"
+        ? csoundOrcLanguage
+        : mode === "sco"
+          ? csoundScoLanguage
+          : csoundCsdLanguage
   const support = []
   if (config?.semanticHighlighting !== false) support.push(csoundSemanticHighlighting())
   if (config?.hover !== false) support.push(csoundHover())

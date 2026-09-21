@@ -16,6 +16,7 @@ test("browser bundlers can discover and split the lazy help catalog", async () =
     logLevel: "silent",
   })
   assert.ok(Object.keys(result.metafile.inputs).some(path => path.endsWith("dist/opcodes-rich.js")))
+  assert.ok(!Object.keys(result.metafile.inputs).some(path => path.endsWith("dist/compat.js")))
   const main = Object.values(result.metafile.outputs).find(output => output.entryPoint?.endsWith("dist/index.js"))
   assert.ok(main.imports.some(entry => entry.kind === "dynamic-import"))
   assert.ok(!Object.keys(main.inputs).some(path => path.endsWith("dist/opcodes-rich.js")))

@@ -18,13 +18,13 @@ npm install @kunstmusik/codemirror-lang-csound
 
 ## Changelog
 
-### Unreleased
+### 1.0.3 (unreleased)
 
-- Add the Csound Web IDE compatibility entry, rate CSS classes, and cursor synopsis panel.
+- Add a language-only `/compat` entry for old option names. Keep colors, panels, and evaluation in host code.
 - Parse Csound 7 declarations, multiline UDO signatures, Unicode names, boolean rates, and array expression indexing.
 - Keep Unicode and multiline UDOs available to completion, hover, and semantic highlighting.
 - Let browser bundlers load the rich help catalog as a separate chunk.
-- Add DOM tests for the IDE integration and a command to scan a Csound test checkout.
+- Add language-interface tests and a command to scan a Csound test checkout.
 
 ### 1.0.2
 
@@ -97,6 +97,7 @@ If you need the bare languages instead of the bundled `LanguageSupport`, the pac
 ```ts
 csound({
   mode: "orc",
+  completion: false,
   semanticHighlighting: false,
   hover: false,
 })
@@ -119,29 +120,28 @@ Some alternate score-bin dialects remain follow-up work.
 
 ## Migrating from @hlolli/codemirror-lang-csound
 
-Use the compatibility entry to keep the Web IDE's rate colors and bottom synopsis panel:
+New integrations should use `csound({ mode })`. A temporary, language-only
+adapter keeps the old mode and completion option names:
 
 ```ts
-import { csoundMode } from "@kunstmusik/codemirror-lang-csound"
+import { csoundMode } from "@kunstmusik/codemirror-lang-csound/compat"
 
 csoundMode({
   fileType: "csd",             // "csd" (default), "orc", or "sco"
   enableCompletion: true,
-  enableSynopsis: true,
-  enableDefaultTheme: true,
 })
 ```
 
-All three flags default to true. Turning off the default theme keeps the CSS
-classes, so the host can supply its own colors. Completion includes built-ins
-and UDOs from the document. The synopsis panel uses the same opcode data as hover.
+Completion defaults to true. This adapter adds no semantic colors, hover UI,
+synopsis panel, legacy CSS, or indentation preference. Hosts must supply their
+own presentation and evaluation behavior. The old `enableSynopsis` and
+`enableDefaultTheme` options do not belong to this adapter.
 
-The short names `csdLanguage`, `orcLanguage`, and `scoLanguage` alias the existing
-bare languages. `csound()` keeps its semantic colors and hover defaults.
+The `/compat` entry also exports `csdLanguage`, `orcLanguage`, and `scoLanguage`
+as aliases for the bare languages. None of these compatibility names appear in
+the main entry. `csound()` keeps its existing defaults.
 
-For custom setups, the package also exports `csoundLegacyHighlighting()`,
-`csoundLegacyTheme`, and `csoundSynopsis()`.
-See [MIGRATION.md](./MIGRATION.md) for the Web IDE's API and CSS requirements.
+See [MIGRATION.md](./MIGRATION.md) for the host split and release sequence.
 
 ## Csound corpus tests
 

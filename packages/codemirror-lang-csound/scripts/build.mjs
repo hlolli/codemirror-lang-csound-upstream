@@ -5,7 +5,7 @@ import { rm } from "node:fs/promises"
 await rm(new URL("../dist/", import.meta.url), { recursive: true, force: true })
 
 const shared = {
-  entryPoints: ["src/index.ts", "src/compat.ts", "src/opcodes-rich.ts"],
+  entryPoints: ["src/index.ts", "src/compat.ts", "src/syntax.ts", "src/opcodes-rich.ts"],
   bundle: true,
   packages: "external",
   // Keep help data separate while letting consumer bundlers follow the import.

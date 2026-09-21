@@ -21,6 +21,7 @@ npm install @kunstmusik/codemirror-lang-csound
 ### 1.0.3 (unreleased)
 
 - Add a language-only `/compat` entry for old option names. Keep colors, panels, and evaluation in host code.
+- Add generated node names and grammar-owned identifier groups under `/syntax`, with type tests and stale-artifact checks.
 - Parse Csound 7 declarations, multiline UDO signatures, Unicode names, boolean rates, and array expression indexing.
 - Keep Unicode and multiline UDOs available to completion, hover, and semantic highlighting.
 - Let browser bundlers load the rich help catalog as a separate chunk.
@@ -142,6 +143,40 @@ as aliases for the bare languages. None of these compatibility names appear in
 the main entry. `csound()` keeps its existing defaults.
 
 See [MIGRATION.md](./MIGRATION.md) for the host split and release sequence.
+
+## Checked syntax adapters
+
+Use semantic and hover results where possible. Hosts that need syntax-tree
+access can import the current parser's checked names and groups:
+
+```ts
+import {
+  csoundNodeNames as nodes,
+  csoundNodeGroups,
+  csoundNodeSet,
+  type CsoundNodeName,
+} from "@kunstmusik/codemirror-lang-csound/syntax"
+
+const identifiers = csoundNodeSet(csoundNodeGroups.CsoundIdentifier)
+const statements = csoundNodeSet([nodes.OrcStatement, nodes.ScoStatement])
+identifiers.has(node.name) // Raw Lezer names remain strings.
+// csoundNodeSet(["TypedIndentifier"]) // Type error.
+```
+
+The grammar marks identifier tokens with `group=CsoundIdentifier`. The build
+derives frozen names, root names, and group members from `parser.nodeSet`,
+including `@name` aliases. Hosts do not need to copy the identifier list.
+Numeric parser IDs and anonymous/error nodes are not part of this entry.
+
+Highlight, fold, and indent maps in the package check their keys against
+`CsoundNodeName`. Semantic and hover code use the same generated names.
+This catches misspellings and removed names, not changes in tree structure or
+host evaluation policy; keep integration tests for those.
+
+After editing the grammar, run `npm run build:grammar` and commit the generated
+parser and `src/syntax-nodes.ts`. `npm test` checks that these files match the
+grammar **before** rebuilding, then runs declaration-level tests that must
+reject invalid names. CI runs the same checks.
 
 ## Csound corpus tests
 

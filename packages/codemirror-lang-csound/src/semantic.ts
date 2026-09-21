@@ -1,6 +1,7 @@
 import { syntaxTree } from "@codemirror/language"
 import { RangeSetBuilder, type Extension } from "@codemirror/state"
-import type { SyntaxNode } from "@lezer/common"
+import type { SyntaxNode, Tree } from "@lezer/common"
+import { csoundNodeNames as nodes, csoundNodeGroups, csoundNodeSet, type CsoundTopNodeName } from "./syntax.js"
 import {
   Decoration,
   EditorView,
@@ -88,8 +89,8 @@ interface SemanticDocumentSignatureCache {
 
 interface SemanticDocumentParseCache {
   documentText: string
-  topRule: "CsdFile" | "OrchestraFile"
-  tree: any
+  topRule: CsoundTopNodeName
+  tree: Tree
 }
 
 interface SemanticLineAnalysisCache {
@@ -112,11 +113,12 @@ const ambiguousStatementOpcodes = new Set(["a", "b", "B", "i", "k", "p", "S"])
 const controlFlowConditionLeadingKeywords = new Set(["if", "elseif", "while", "until"])
 const ifConditionTrailingKeywords = ["rigoto", "reinit", "igoto", "kgoto", "ithen", "kthen", "goto", "then"]
 const loopConditionTrailingKeywords = ["do"]
-const documentBackedSemanticNodeNames = new Set([
-  "OrcGenericLine",
-  "AssignmentStatement",
-  "ReturnStatement",
-  "XoutStatement",
+const typedIdentifierNodes = csoundNodeSet(csoundNodeGroups.CsoundTypedIdentifier)
+const documentBackedSemanticNodeNames = csoundNodeSet([
+  nodes.OrcGenericLine,
+  nodes.AssignmentStatement,
+  nodes.ReturnStatement,
+  nodes.XoutStatement,
 ])
 const documentBackedGroupScanLimit = 64_000
 const ignoredSemanticVariableNames = new Set([
@@ -267,39 +269,34 @@ function buildOpcodeDecorations(
       from: viewport.from,
       to: viewport.to,
       enter(node) {
-        if (
-          node.name === "TypedIdentifier" ||
-          node.name === "TypedArrayIdentifier" ||
-          node.name === "GlobalTypedIdentifier" ||
-          node.name === "GlobalTypedArrayIdentifier"
-        ) {
+        if (typedIdentifierNodes.has(node.name)) {
           addTypedIdentifierTypeAnnotation(builder, view, node.from, node.to)
           return
         }
 
-        if (node.name === "PField") {
+        if (node.name === nodes.PField) {
           builder.add(node.from, node.to, pFieldMark)
           return false
         }
 
-        if (node.name === "InstrId") {
+        if (node.name === nodes.InstrId) {
           const text = view.state.doc.sliceString(node.from, node.to)
           if (isNamedInstrumentName(text)) builder.add(node.from, node.to, instrumentNameMark)
           return
         }
 
-        if (node.name === "LegacyUdo" || node.name === "ModernUdo") {
+        if (node.name === nodes.LegacyUdo || node.name === nodes.ModernUdo) {
           const text = view.state.doc.sliceString(node.from, node.to)
           const range = udoDefinitionNameRange(text, node.from)
           if (range) builder.add(range.from, range.to, userOpcodeMark)
         }
 
-        if (node.name === "UdoReturnSpec") {
+        if (node.name === nodes.UdoReturnSpec) {
           addUdoReturnSpecTypeAnnotation(builder, view, node.from, node.to)
           return
         }
 
-        if (node.name === "ScoreOpcode") {
+        if (node.name === nodes.ScoreOpcode) {
           const text = view.state.doc.sliceString(node.from, node.to)
           const eventRange = scoreOpcodeEventTypeRange(node.from, node.to)
           const pfieldRange = scoreOpcodePFieldNumberRange(text, node.from)
@@ -308,7 +305,7 @@ function buildOpcodeDecorations(
           return false
         }
 
-        if (node.name === "MacroUsageToken") {
+        if (node.name === nodes.MacroUsageToken) {
           const text = view.state.doc.sliceString(node.from, node.to)
           for (const range of macroArgumentNumberRanges(text, node.from)) {
             builder.add(range.from, range.to, scoreNumberMark)
@@ -316,7 +313,7 @@ function buildOpcodeDecorations(
           return false
         }
 
-        if (node.name === "XoutStatement") {
+        if (node.name === nodes.XoutStatement) {
           const text = view.state.doc.sliceString(node.from, node.to)
           const decorations: Array<{ from: number; to: number; mark: Decoration }> = []
           for (const span of findSemanticSpans(text, node.from, userOpcodeSignatures)) {
@@ -334,7 +331,7 @@ function buildOpcodeDecorations(
           return false
         }
 
-        if (node.name === "ReturnStatement") {
+        if (node.name === nodes.ReturnStatement) {
           const text = view.state.doc.sliceString(node.from, node.to)
           const semanticSpans = findReturnSemanticSpans(text, node.from, userOpcodeSignatures) ?? []
           for (const span of semanticSpans) {
@@ -344,7 +341,7 @@ function buildOpcodeDecorations(
           return false
         }
 
-        if (node.name === "FunctionCallStatement") {
+        if (node.name === nodes.FunctionCallStatement) {
           const text = view.state.doc.sliceString(node.from, node.to)
           const semanticSpans = findSemanticSpans(text, node.from, userOpcodeSignatures)
           for (const span of semanticSpans) {
@@ -354,7 +351,7 @@ function buildOpcodeDecorations(
           return false
         }
 
-        if (node.name === "AssignmentStatement") {
+        if (node.name === nodes.AssignmentStatement) {
           const text = view.state.doc.sliceString(node.from, node.to)
           const semanticSpans = findSemanticSpans(text, node.from, userOpcodeSignatures)
           if (semanticSpans.length === 0) return
@@ -383,7 +380,7 @@ function buildOpcodeDecorations(
           return false
         }
 
-        if (node.name === "OrcExpr") {
+        if (node.name === nodes.OrcExpr) {
           if (!isControlFlowConditionExpression(documentText, node.from, node.to)) return
 
           const text = view.state.doc.sliceString(node.from, node.to)
@@ -395,12 +392,12 @@ function buildOpcodeDecorations(
           return false
         }
 
-        if (node.name === "UdoArgTypes") {
+        if (node.name === nodes.UdoArgTypes) {
           builder.add(node.from, node.to, typeAnnotationMark)
           return false
         }
 
-        if (node.name === "FunctionCallee" || node.name === "ScoreFunctionCallee") {
+        if (node.name === nodes.FunctionCallee || node.name === nodes.ScoreFunctionCallee) {
           const text = view.state.doc.sliceString(node.from, node.to)
           const kind = getCsoundSemanticKind(text, { userOpcodeSignatures })
           if (kind) {
@@ -409,7 +406,7 @@ function buildOpcodeDecorations(
           return
         }
 
-        if (node.name !== "OrcGenericLine") return
+        if (node.name !== nodes.OrcGenericLine) return
 
         const text = view.state.doc.sliceString(node.from, node.to)
         const decorations: Array<{ from: number; to: number; mark: Decoration }> = []
@@ -1047,7 +1044,7 @@ function expandDocumentLineWindow(
   return { from: windowFrom, to: windowTo }
 }
 
-function parseSemanticDocumentTree(documentText: string): any {
+function parseSemanticDocumentTree(documentText: string): Tree {
   const topRule = semanticParseTopRule(documentText)
   const cachedParse = semanticDocumentParseCache
   if (cachedParse && cachedParse.documentText === documentText && cachedParse.topRule === topRule) {
@@ -1077,8 +1074,8 @@ function getDocumentUserOpcodeSignatures(documentText: string): Map<string, Opco
   return userOpcodeSignatures
 }
 
-function semanticParseTopRule(documentText: string): "CsdFile" | "OrchestraFile" {
-  return /<CsoundSynthesizer\b/i.test(documentText) ? "CsdFile" : "OrchestraFile"
+function semanticParseTopRule(documentText: string): CsoundTopNodeName {
+  return /<CsoundSynthesizer\b/i.test(documentText) ? nodes.CsdFile : nodes.OrchestraFile
 }
 
 function semanticSpansForParsedNode(
@@ -1087,7 +1084,7 @@ function semanticSpansForParsedNode(
   offset: number,
   userOpcodeSignatures: Map<string, OpcodeSignature[]>,
 ): SemanticSpan[] {
-  if (nodeName === "ReturnStatement") {
+  if (nodeName === nodes.ReturnStatement) {
     return findReturnSemanticSpans(text, offset, userOpcodeSignatures) ?? []
   }
 

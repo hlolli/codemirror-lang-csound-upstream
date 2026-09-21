@@ -54,9 +54,15 @@ helper and returns plain `{ from, to, kind }` values to evaluation code.
 Its tests cover whole instruments, legacy and modern UDOs, top-level orchestra
 and score statements, and their actual execution routes.
 
-Parser node names remain implementation details, not an evaluation interface
-promised by this package. A reusable range helper can follow if another host
-needs the same policy.
+The low-level `/syntax` entry supplies generated names and grammar-owned
+identifier groups for checked adapters. Use `csoundNodeNames` rather than
+unchecked strings and `csoundNodeSet(csoundNodeGroups.CsoundIdentifier)` rather
+than a copied identifier list. Renamed nodes then fail typechecking, and new
+members of a grammar group reach hosts without a second list to update.
+
+These names describe the current parser; they do not promise stable tree
+structure or an evaluation policy. A reusable range helper can follow if
+another host needs the same policy.
 
 ## Test and release split
 

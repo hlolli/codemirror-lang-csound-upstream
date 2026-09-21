@@ -770,32 +770,32 @@ ScoreIfdefDirective {
   identifierContinue { identifierStart | @digit }
   arraySuffixToken { ("[" "]")+ }
 
-  pfield[@name=PField] { "p" @digit+ }
+  pfield[@name=PField, group=CsoundIdentifier] { "p" @digit+ }
 
-  arrayIdentifier[@name=ArrayIdentifier] { identifierStart identifierContinue* "[]" }
+  arrayIdentifier[@name=ArrayIdentifier, group=CsoundIdentifier] { identifierStart identifierContinue* "[]" }
 
-  headerIdentifier[@name=HeaderIdentifier] { "sr" | "kr" | "ksmps" | "nchnls" | "nchnls_i" | "0dbfs" }
+  headerIdentifier[@name=HeaderIdentifier, group=CsoundIdentifier] { "sr" | "kr" | "ksmps" | "nchnls" | "nchnls_i" | "0dbfs" }
 
-  legacyTypeIdentifier[@name=LegacyTypeIdentifier] {
+  legacyTypeIdentifier[@name=LegacyTypeIdentifier, group=CsoundIdentifier] {
     $[akifSwbB] @digit+ identifierContinue* |
     $[akifSwbB] $[A-Z_] identifierContinue* |
     "g" $[akifSwbB] @digit+ identifierContinue* |
     "g" $[akifSwbB] $[A-Z_] identifierContinue*
   }
 
-  globalTypedArrayIdentifier[@name=GlobalTypedArrayIdentifier] { identifierStart identifierContinue* "@global:" identifierStart identifierContinue* arraySuffixToken }
+  globalTypedArrayIdentifier[@name=GlobalTypedArrayIdentifier, group="CsoundIdentifier CsoundTypedIdentifier"] { identifierStart identifierContinue* "@global:" identifierStart identifierContinue* arraySuffixToken }
 
-  typedArrayIdentifier[@name=TypedArrayIdentifier] { identifierStart identifierContinue* ":" identifierStart identifierContinue* arraySuffixToken }
+  typedArrayIdentifier[@name=TypedArrayIdentifier, group="CsoundIdentifier CsoundTypedIdentifier"] { identifierStart identifierContinue* ":" identifierStart identifierContinue* arraySuffixToken }
 
-  globalTypedIdentifier[@name=GlobalTypedIdentifier] { identifierStart identifierContinue* "@global:" identifierStart identifierContinue* }
+  globalTypedIdentifier[@name=GlobalTypedIdentifier, group="CsoundIdentifier CsoundTypedIdentifier"] { identifierStart identifierContinue* "@global:" identifierStart identifierContinue* }
 
-  typedIdentifier[@name=TypedIdentifier] { identifierStart identifierContinue* ":" identifierStart identifierContinue* }
+  typedIdentifier[@name=TypedIdentifier, group="CsoundIdentifier CsoundTypedIdentifier"] { identifierStart identifierContinue* ":" identifierStart identifierContinue* }
 
   macroUsage[@name=MacroUsageToken] { "$" identifierStart identifierContinue* macroUsageArgs? "."? }
   macroUsageArgs { "(" macroUsageArgChar* ")" }
   macroUsageArgChar { ![)] }
 
-  identifier[@name=Identifier] { identifierStart identifierContinue* }
+  identifier[@name=Identifier, group=CsoundIdentifier] { identifierStart identifierContinue* }
 
   string[@name=String] { "\"" stringChar* "\"" }
   stringChar { ![\\\"\n] | "\\" _ }

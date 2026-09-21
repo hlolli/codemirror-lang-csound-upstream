@@ -37,8 +37,7 @@
     }
   },
   "files": [
-    "dist/**",
-    "MIGRATION.md"
+    "dist/**"
   ],
   "license": "MIT",
   "repository": {

@@ -142,8 +142,6 @@ The `/compat` entry also exports `csdLanguage`, `orcLanguage`, and `scoLanguage`
 as aliases for the bare languages. None of these compatibility names appear in
 the main entry. `csound()` keeps its existing defaults.
 
-See [MIGRATION.md](./MIGRATION.md) for the host split and release sequence.
-
 ## Checked syntax adapters
 
 Use semantic and hover results where possible. Hosts that need syntax-tree
